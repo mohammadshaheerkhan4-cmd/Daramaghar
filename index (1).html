@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pakistani Dramas</title>
+<style>
+:root{color-scheme:dark;--bg:#0e0d12;--cd:#1a1822;--ln:#2b2836;--tx:#f3f0f7;--mu:#a29db0;--ac:#e5484d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding-top:env(safe-area-inset-top,0)}
+.w{max-width:1100px;margin:0 auto;padding:0 16px 30px}h1{font-size:clamp(26px,5vw,40px);margin:22px 0 4px;letter-spacing:-1px;color:var(--ac)}
+.sub,.mu{color:var(--mu)}.sub{margin:0 0 14px}.mu{font-size:14px}
+button,select,input{background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:999px;padding:9px 16px;font-size:15px;cursor:pointer}
+.tabs,.f{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.tabs .on{background:var(--ac);border-color:var(--ac)}input{flex:1;min-width:150px;cursor:text}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.c{background:var(--cd);border:1px solid var(--ln);border-radius:12px;overflow:hidden;cursor:pointer}
+.c img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#26232f}.c div{padding:8px 10px}.c b{display:block;font-size:14px;line-height:1.3}.c small{color:var(--mu)}
+.mw{text-align:center;margin:18px 0}
+dialog{background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:18px;max-width:760px;width:calc(100% - 20px);padding:0;max-height:92vh}dialog::backdrop{background:rgba(0,0,0,.75)}.in{padding:16px}
+.x{float:right;background:none;border:0;font-size:26px;padding:0 6px}
+.v{position:relative;padding-top:56.25%;border-radius:12px;overflow:hidden;background:#000;margin:6px 0 10px}.v iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.r{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;margin-bottom:10px}.r a{color:var(--ac)}
+.ep{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto}.ep button{border-radius:10px;text-align:left;font-size:14px}.ep .on{border-color:var(--ac)}
+footer{color:var(--mu);font-size:12px;text-align:center;padding:10px 16px 40px}
+</style></head><body>
+<div class="w"><h1 id="h"></h1>
+<p class="sub">Pakistani dramas from official channels. New episodes appear automatically.</p>
+<div class="tabs" id="tb"><button data-v="l" class="on">Latest Episodes</button><button data-v="d">Dramas</button></div>
+<div class="f"><input id="q" placeholder="Search a drama..."><select id="ch"></select></div>
+<p class="mu" id="st">Loading...</p>
+<div class="grid" id="g"></div><div class="mw"><button id="more" hidden>Show more</button></div></div>
+<dialog id="m"><div class="in" id="mi"></div></dialog>
+<footer>Videos play from official YouTube channels. All dramas belong to their respective owners.</footer>
+<script>
+const KEY="AIzaSyCKCEiI0PnGNs4M-xqKg7ervf3o8_7Q73g",SITE="DramaGhar",WA="923172966144",API="https://www.googleapis.com/youtube/v3/";
+const CH=[["HUM TV","HUMTV"],["ARY Digital","ARYDigitalasia"],["Har Pal Geo","HarPalGeo"],["Green Entertainment","GreenEntertainmentTV"]];
+const BLOCK=[]; /* video IDs to hide, e.g. ["abc123"] */
+const BAD=/promo|teaser|trailer|\bost\b|soundtrack|behind the|making of|\bbts\b|clip|best moment|scene|reaction|review|interview|#shorts|\blive\b|news/i,EP=/episode|\bep\.?\s*#?\d/i;
+const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+document.title=SITE+" | Pakistani Dramas";$("h").textContent=SITE;
+async function api(p,q){const u=new URL(API+p);u.searchParams.set("key",KEY);for(const k in q)if(q[k])u.searchParams.set(k,q[k]);const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
+async function cached(k,min,fn){try{const s=JSON.parse(localStorage.getItem(k));if(s&&Date.now()-s.t<min*6e4)return s.d}catch(e){}const d=await fn();try{localStorage.setItem(k,JSON.stringify({t:Date.now(),d}))}catch(e){}return d}
+const mins=s=>{const m=/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(s)||[];return(+m[1]||0)*60+(+m[2]||0)+(+m[3]||0)/60};
+const clean=(id,t)=>!BLOCK.includes(id)&&t&&!/^(private|deleted) video/i.test(t)&&!BAD.test(t);
+async function good(items){const out=[];for(let i=0;i<items.length;i+=50){const b=items.slice(i,i+50),v=await api("videos",{part:"contentDetails,status",id:b.map(x=>x.id).join(",")}),ok={};v.items.forEach(x=>ok[x.id]=x.status.embeddable&&x.status.privacyStatus=="public"&&mins(x.contentDetails.duration)>=12);b.forEach(x=>ok[x.id]&&out.push(x))}return out}
+let CHS=[];
+async function chans(){CHS=(await Promise.all(CH.map(([n,h])=>cached("c_"+h,10080,async()=>{const d=await api("channels",{part:"contentDetails",forHandle:h}),c=d.items&&d.items[0];return c?{n,id:c.id,up:c.contentDetails.relatedPlaylists.uploads}:null}).catch(()=>null)))).filter(Boolean);
+$("ch").innerHTML='<option value="">All channels</option>'+CHS.map(c=>`<option value="${c.id}">${esc(c.n)}</option>`).join("")}
+const latest=()=>cached("latest",30,async()=>{const all=[];await Promise.all(CHS.map(async c=>{const d=await api("playlistItems",{part:"snippet",playlistId:c.up,maxResults:50}),it=d.items.map(x=>({id:x.snippet.resourceId.videoId,t:x.snippet.title,d:x.snippet.publishedAt,c:c.n,ci:c.id})).filter(x=>clean(x.id,x.t)&&EP.test(x.t));all.push(...await good(it))}));return all.sort((a,b)=>b.d.localeCompare(a.d))});
+const S={v:"l",all:[],pl:[],pt:null,f:[]};let N=24,EPS=[];
+const card=(th,t,sub,at)=>`<div class="c" ${at}><img loading="lazy" alt="" src="${esc(th)}"><div><b>${esc(t)}</b><small>${esc(sub)}</small></div></div>`;
+function draw(){const q=$("q").value.trim().toLowerCase(),c=$("ch").value;let h="";
+ if(S.v=="l"){S.f=S.all.filter(x=>(!c||x.ci==c)&&(!q||x.t.toLowerCase().includes(q)));h=S.f.slice(0,N).map(x=>card("https://i.ytimg.com/vi/"+x.id+"/mqdefault.jpg",x.t,x.c+" · "+x.d.slice(0,10),`data-e="${x.id}"`)).join("");$("more").hidden=S.f.length<=N}
+ else{h=S.pl.filter(x=>!q||x.t.toLowerCase().includes(q)).map(x=>card(x.th,x.t,x.n+" videos",`data-p="${x.id}"`)).join("");$("more").hidden=!S.pt}
+ $("g").innerHTML=h||"<p class='mu'>Nothing found.</p>"}
+async function loadPl(reset){const c=$("ch").value;if(reset){S.pl=[];S.pt=null}
+ const d=await api("playlists",{part:"snippet,contentDetails",channelId:c,maxResults:50,pageToken:S.pt});S.pt=d.nextPageToken||null;
+ S.pl.push(...d.items.filter(x=>x.contentDetails.itemCount>=3&&clean(x.id,x.snippet.title)).map(x=>({id:x.id,t:x.snippet.title,n:x.contentDetails.itemCount,th:(x.snippet.thumbnails.medium||x.snippet.thumbnails.default||{}).url||""})))}
+function show(h){$("mi").innerHTML='<button class="x" id="cl">&times;</button>'+h;$("cl").onclick=()=>$("m").close();if(!$("m").open)$("m").showModal()}
+$("m").addEventListener("close",()=>$("mi").innerHTML="");$("m").addEventListener("click",e=>{if(e.target==$("m"))$("m").close()});
+function play(eps,i){const e=eps[i];EPS=eps;show(`<h3 style="margin:0 0 6px;font-size:17px">${esc(e.t)}</h3><div class="v"><iframe src="https://www.youtube-nocookie.com/embed/${e.id}?rel=0&autoplay=1" allow="autoplay;fullscreen" allowfullscreen></iframe></div><div class="r"><a target="_blank" rel="noopener" href="https://youtu.be/${e.id}">Watch on YouTube</a><a target="_blank" rel="noopener" href="https://wa.me/${WA}?text=${encodeURIComponent("Wrong video report: "+e.t+" https://youtu.be/"+e.id)}">Wrong video? Report</a></div>${eps.length>1?'<div class="ep">'+eps.map((x,j)=>`<button data-j="${j}" class="${j==i?"on":""}">${esc(x.t)}</button>`).join("")+"</div>":""}`)}
+$("mi").onclick=e=>{const b=e.target.closest("[data-j]");if(b)play(EPS,+b.dataset.j)};
+async function openList(pid){show("<p class='mu'>Loading episodes...</p>");try{const d=await api("playlistItems",{part:"snippet",playlistId:pid,maxResults:50}),it=d.items.map(x=>({id:x.snippet.resourceId.videoId,t:x.snippet.title,d:x.snippet.publishedAt})).filter(x=>clean(x.id,x.t)),eps=(await good(it)).sort((a,b)=>a.d.localeCompare(b.d));eps.length?play(eps,0):show("<p>No playable episodes found.</p>")}catch(e){show("<p>Could not load episodes. Please try again.</p>")}}
+$("g").onclick=e=>{const c=e.target.closest(".c");if(!c)return;if(c.dataset.e){const x=S.f.find(v=>v.id==c.dataset.e);x&&play([x],0)}else openList(c.dataset.p)};
+async function go(reset){try{if(S.v=="d"){if(!$("ch").value&&CHS[0])$("ch").value=CHS[0].id;if(reset||!S.pl.length)await loadPl(true)}N=reset?24:N;draw()}catch(e){$("g").innerHTML="<p class='mu'>Could not load right now. Please try again in a little while.</p>"}}
+$("tb").onclick=e=>{const b=e.target.closest("button");if(!b)return;document.querySelectorAll("#tb button").forEach(x=>x.classList.remove("on"));b.classList.add("on");S.v=b.dataset.v;go(true)};
+$("ch").onchange=()=>go(true);$("q").oninput=()=>draw();
+$("more").onclick=async()=>{if(S.v=="l"){N+=24;draw()}else{try{await loadPl(false);draw()}catch(e){}}};
+(async()=>{try{await chans();if(!CHS.length){$("st").textContent="No channels found. Check the channel handles in index.html.";return}
+ $("st").textContent="Channels: "+CHS.map(c=>c.n).join(", ");S.all=await latest();draw()}catch(e){$("st").textContent="Could not load. Please try again in a little while."}})();
+</script></body></html>
